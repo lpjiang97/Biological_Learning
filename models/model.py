@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class BPNet(nn.Module):
@@ -9,7 +10,7 @@ class BPNet(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, output_dim) 
 
     def forward(self, x):
-        return self.fc2(self.fc1(x))
+        return self.fc2(F.relu(self.fc1(x)))
 
 
 class BioNet(nn.Module):
