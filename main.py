@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from models.model import BPNet
 from trainer.trainer import train, test
-from cmd import args
+from cmdin import args
 
 # data
 transform = transforms.Compose([

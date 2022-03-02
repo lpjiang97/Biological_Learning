@@ -11,6 +11,7 @@ def parse_arguments():
     parser.add_argument('--sess', '--session_name', default="MNIST", type=str, help="Session name")
 
     args = parser.parse_args()
+    # args, unknown = parser.parse_known_args()
     return args
 
 # Parse arguments
