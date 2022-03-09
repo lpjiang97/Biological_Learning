@@ -4,7 +4,7 @@ AMATH 534 final project on "biological" learning for MNIST based on the paper [U
 ## Project structure 
 * `models/`: contains the neural network models and evaluation metric
 * `trainer/`: contains the training & testing loop of the model
-* `cmd.py`: command line arguments helper
+* `cmdin.py`: command line arguments helper
 * `main.py`: main training file logic
 * `Unsupervised_learning_algorithm_MNIST.ipynb`: the implementation of the biological learning rules from the original author
 
