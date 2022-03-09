@@ -30,7 +30,7 @@ def train(model, dataloader, optimizer, criteria, device, writer, epoch):
     writer.add_scalar("Loss", L, epoch)
     writer.add_scalar("Accuracy", A, epoch)
     print(f"Training loss: {L:.3f}, training accuracy: {A:.3f}")
-
+    return L, A
 
 def test(model, dataloader, criteria, device, writer, epoch):
     running_loss = 0.0
@@ -53,3 +53,4 @@ def test(model, dataloader, criteria, device, writer, epoch):
     writer.add_scalar("Loss", L, epoch)
     writer.add_scalar("Accuracy", A, epoch)
     print(f"Test loss: {L:.3f}, test accuracy: {A:.3f}")
+    return L, A
