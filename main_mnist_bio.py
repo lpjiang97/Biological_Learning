@@ -2,7 +2,6 @@ import os
 import csv
 import json
 import pathlib
-from sched import scheduler
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -35,10 +34,17 @@ test_loader = torch.utils.data.DataLoader(
 
 # model
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-model = BioNet(torch.FloatTensor(np.load("data/biow.npy")), 10).to(device) # MNIST
-# freeze bio layer
-for p in model.bio_layer.parameters():
+# one or two layers
+two_layer = args.mode == "two"
+first_bio_weight = torch.FloatTensor(np.load("data/first_layer_weights.npy"))
+sec_bio_weight = torch.FloatTensor(np.load("data/second_layer_weights.npy")) if two_layer else None
+model = BioNet(first_bio_weight, 10, n=args.n, two_layer=two_layer, second_bio_weights=sec_bio_weight) # MNIST
+# freeze bio layers
+for p in model.first_bio_layer.parameters():
     p.requires_grad = False
+if model.sec_bio_layer is not None:
+    for p in model.sec_bio_layer.parameters():
+        p.requires_grad = False
 model = model.to(device)
 
 # training
@@ -65,8 +71,8 @@ f_test = open(run_base_dir / "loss_teset.csv", "w")
 train_csv_writer = csv.writer(f_train)
 test_csv_writer = csv.writer(f_test)
 
-#criteria = nn.CrossEntropyLoss()
-criteria = OnehotLoss()
+criteria = nn.CrossEntropyLoss()
+#criteria = OnehotLoss(m=args.m)
 
 # main training loop
 for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True):

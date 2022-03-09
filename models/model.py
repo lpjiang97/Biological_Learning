@@ -1,5 +1,6 @@
 from audioop import bias
 from colorsys import TWO_THIRD
+from turtle import hideturtle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -30,13 +31,14 @@ class BioNet(nn.Module):
     def __init__(self, first_bio_weights, output_dim, n=1, two_layer=False, second_bio_weights=None):
         super(BioNet, self).__init__()
         self.first_bio_layer = nn.Linear(first_bio_weights.shape[1], first_bio_weights.shape[0], bias=False)
-        self.sec_bio_layer = nn.Linear(first_bio_weights.shape[0], 100, bias=False)
-        self.fc = nn.Linear(100, output_dim)
+        self.sec_bio_layer = None
+        self.fc = nn.Linear(100, output_dim) if two_layer else nn.Linear(first_bio_weights.shape[0], output_dim)
         self.first_bio_layer.weight.data = first_bio_weights
         self.n = n
         self.two_layer = two_layer
         if two_layer:
             assert second_bio_weights is not None
+            self.sec_bio_layer = nn.Linear(first_bio_weights.shape[0], 100, bias=False)
             self.sec_bio_layer.weight.data = second_bio_weights
 
     def forward(self, x):
