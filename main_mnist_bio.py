@@ -13,6 +13,7 @@ import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
 from models.model import BioNet
+from models.lossses import OnehotLoss
 from trainer.trainer import train, test
 from cmdin import args
 
@@ -64,12 +65,15 @@ f_test = open(run_base_dir / "loss_teset.csv", "w")
 train_csv_writer = csv.writer(f_train)
 test_csv_writer = csv.writer(f_test)
 
+#criteria = nn.CrossEntropyLoss()
+criteria = OnehotLoss()
+
 # main training loop
 for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True):
     # train
-    train_loss, train_accuracy = train(model, train_loader, optimizer, nn.CrossEntropyLoss(), device, train_writer, epoch) 
+    train_loss, train_accuracy = train(model, train_loader, optimizer, criteria, device, train_writer, epoch) 
     # test
-    test_loss, test_accuracy = test(model, test_loader, nn.CrossEntropyLoss(), device, test_writer, epoch) 
+    test_loss, test_accuracy = test(model, test_loader, criteria, device, test_writer, epoch) 
     # log to file
     train_csv_writer.writerow([train_loss, train_accuracy])  
     test_csv_writer.writerow([test_loss, test_accuracy])  

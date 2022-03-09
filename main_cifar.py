@@ -2,7 +2,6 @@ import os
 import csv
 import json
 import pathlib
-from sched import scheduler
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -33,7 +32,9 @@ test_loader = torch.utils.data.DataLoader(
 
 # model
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-model = BPNet(32 * 32, 3, 2000, 10).to(device) # CIFAR 10 
+# one or two layers
+two_layer = args.mode == "two"
+model = BPNet(32 * 32, 3, 2000, 10, two_layer=two_layer).to(device) # CIFAR 10 
 
 # training
 E = args.epochs
@@ -59,12 +60,14 @@ f_test = open(run_base_dir / "loss_teset.csv", "w")
 train_csv_writer = csv.writer(f_train)
 test_csv_writer = csv.writer(f_test)
 
+criteria = nn.CrossEntropyLoss()
+
 # main training loop
 for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True):
     # train
-    train_loss, train_accuracy = train(model, train_loader, optimizer, nn.CrossEntropyLoss(), device, train_writer, epoch) 
+    train_loss, train_accuracy = train(model, train_loader, optimizer, criteria, device, train_writer, epoch) 
     # test
-    test_loss, test_accuracy = test(model, test_loader, nn.CrossEntropyLoss(), device, test_writer, epoch) 
+    test_loss, test_accuracy = test(model, test_loader, criteria, device, test_writer, epoch) 
     # log to file
     train_csv_writer.writerow([train_loss, train_accuracy])  
     test_csv_writer.writerow([test_loss, test_accuracy])  
@@ -73,8 +76,6 @@ for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True)
         torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 
     scheduler1.step()
     scheduler2.step()
-
-
 torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 
 f_train.close()
 f_test.close()
