@@ -11,7 +11,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
-from models.model import BPNet
+from models.model import BioNet
 from models.lossses import OnehotLoss
 from trainer.trainer import train, test
 from cmdin import args
@@ -19,16 +19,15 @@ from cmdin import args
 # data
 transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,)) # MNIST stats
-    # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # CIFAR 10 stats
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) # CIFAR 10 stats
 ])
 batch_size = args.batch_size
 train_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('data', train=True, download=True, transform=transform),
+    torchvision.datasets.CIFAR10('data', train=True, download=True, transform=transform),
     batch_size=batch_size, shuffle=True
 )
 test_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.MNIST('data', train=False, download=True, transform=transform),
+    torchvision.datasets.CIFAR10('data', train=False, download=True, transform=transform),
     batch_size=batch_size, shuffle=True
 )
 
@@ -36,20 +35,29 @@ test_loader = torch.utils.data.DataLoader(
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 # one or two layers
 two_layer = args.mode == "two"
-#model = BPNet(28 * 28, 1, 2000, 10, two_layer=two_layer).to(device) # MNIST
-model = BPNet(28 * 28, 1, 100, 10, two_layer=two_layer).to(device) # MNIST
+first_bio_weight = torch.FloatTensor(np.load("data/cifar_two_layer_weight1.npy"))
+sec_bio_weight = torch.FloatTensor(np.load("data/cifar_two_layer_weight2.npy")) if two_layer else None
+model = BioNet(first_bio_weight, 10, n=args.n, two_layer=two_layer, second_bio_weights=sec_bio_weight) # MNIST
+# freeze bio layers
+for p in model.first_bio_layer.parameters():
+    p.requires_grad = False
+if model.sec_bio_layer is not None:
+    for p in model.sec_bio_layer.parameters():
+        p.requires_grad = False
+model = model.to(device)
 
 # training
 E = args.epochs
 lr = args.lr
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-scheduler1 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 200], gamma=0.2)
-scheduler2 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250], gamma=0.5)
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+#scheduler1 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 200], gamma=0.2)
+#scheduler2 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250], gamma=0.5)
 
 # record
 i = 0
 while True:
-    run_base_dir = pathlib.Path("mnist_logs") / f"{args.sess}_try={str(i)}"
+    run_base_dir = pathlib.Path("cifar_logs") / f"{args.sess}_try={str(i)}"
     if not run_base_dir.exists():
         os.makedirs(run_base_dir)
         break
@@ -63,8 +71,8 @@ f_test = open(run_base_dir / "loss_teset.csv", "w")
 train_csv_writer = csv.writer(f_train)
 test_csv_writer = csv.writer(f_test)
 
-criteria = nn.CrossEntropyLoss()
-#criteria = OnehotLoss()
+#criteria = nn.CrossEntropyLoss()
+criteria = OnehotLoss(m=args.m)
 
 # main training loop
 for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True):
@@ -78,8 +86,12 @@ for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True)
     # save checkpoint
     if epoch % 10 == 9:
         torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 
-    scheduler1.step()
-    scheduler2.step()
+    #if epoch < 50:
+    #    scheduler.step()
+    #scheduler1.step()
+    #scheduler2.step()
+
+
 torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 
 f_train.close()
 f_test.close()

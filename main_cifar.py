@@ -34,7 +34,8 @@ test_loader = torch.utils.data.DataLoader(
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 # one or two layers
 two_layer = args.mode == "two"
-model = BPNet(32 * 32, 3, 2000, 10, two_layer=two_layer).to(device) # CIFAR 10 
+#model = BPNet(32 * 32, 3, 2000, 10, two_layer=two_layer).to(device) # CIFAR 10 
+model = BPNet(32 * 32, 3, 100, 10, two_layer=two_layer).to(device) # CIFAR 10 
 
 # training
 E = args.epochs

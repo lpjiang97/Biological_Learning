@@ -51,8 +51,9 @@ model = model.to(device)
 E = args.epochs
 lr = args.lr
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-scheduler1 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 200], gamma=0.2)
-scheduler2 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250], gamma=0.5)
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+#scheduler1 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 200], gamma=0.2)
+#scheduler2 = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 250], gamma=0.5)
 
 # record
 i = 0
@@ -86,8 +87,10 @@ for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True)
     # save checkpoint
     if epoch % 10 == 9:
         torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 
-    scheduler1.step()
-    scheduler2.step()
+    if epoch < 50:
+        scheduler.step()
+    #scheduler1.step()
+    #scheduler2.step()
 
 
 torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 

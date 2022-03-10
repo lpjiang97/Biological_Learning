@@ -15,6 +15,4 @@ class OnehotLoss(nn.Module):
         with torch.no_grad():
             label = F.one_hot(target, num_classes=10)
             label[label == 0] = -1
-        # note here, for odd numebr m, there should be torch.abs()
-        return torch.pow(x - label, self.m).sum(1).sum(0)
-
+        return torch.pow(torch.abs(x - label), self.m).sum(1).sum(0) / batch_size
