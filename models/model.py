@@ -48,3 +48,56 @@ class BioNet(nn.Module):
         else:
             x = self.fc(x) 
         return x
+
+
+class SparseNet(nn.Module):
+
+    def __init__(self, K, M, r_lr=0.1, lmda=5e-3):
+        super(SparseNet, self).__init__()
+        self.K = K
+        self.M = M
+        self.r_lr = r_lr
+        self.lmda = lmda
+        self.U = nn.Linear(self.K, self.M, bias=False)
+        self.normalize_weights()
+
+    def inference(self, img_batch):
+        # create R
+        r = torch.zeros((img_batch.shape[0], self.K), requires_grad=True, device=self.U.weight.device)
+        converged = False
+        # update R
+        optim = torch.optim.SGD([r], self.r_lr)
+        criteria = nn.MSELoss()
+        # train
+        while not converged:
+            old_r = r.clone().detach()
+            # reconstruction
+            pred = self.U(r)
+            loss = criteria(img_batch, pred)
+            loss.backward()
+            optim.step()
+            optim.zero_grad()
+            self.zero_grad()
+            # shrinkage
+            r.data = self.soft_thresholding_(r)
+            converged = torch.norm(r - old_r) / torch.norm(old_r) < 0.01
+        return r
+
+    def soft_thresholding_(self, x):
+        with torch.no_grad():
+            rtn = F.relu(x - self.lmda) - F.relu(-x - self.lmda)
+        return rtn.data
+
+    def zero_grad(self):
+        self.U.zero_grad()
+
+    def normalize_weights(self):
+        with torch.no_grad():
+            self.U.weight.data = F.normalize(self.U.weight.data, dim=0)
+
+    def forward(self, img_batch):
+        # inference
+        r = self.inference(img_batch)
+        # predict 
+        pred = self.U(r)
+        return r, pred
