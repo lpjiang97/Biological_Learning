@@ -11,7 +11,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
-from models.model import SparseNet
+from models.model import SparseNet, BioNet
 from models.lossses import OnehotLoss
 from trainer.trainer import train, test
 from cmdin import args
@@ -34,20 +34,32 @@ test_loader = torch.utils.data.DataLoader(
 
 # model
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+# load sc model
+SCNet = SparseNet(2000, 784, r_lr=50, lmda=0.0005)
+SCNet.load_state_dict(torch.load("sc_logs/SC_try=1/epoch_300.pt"))
 # one or two layers
 two_layer = args.mode == "two"
-#model = BPNet(28 * 28, 1, 2000, 10, two_layer=two_layer).to(device) # MNIST
-model = SparseNet(2000, 28 * 28, r_lr=25, lmda=0.005).to(device)
+first_bio_weight = SCNet.U.weight.data
+sec_bio_weight = torch.FloatTensor(np.load("data/second_layer_weights.npy")) if two_layer else None
+model = BioNet(first_bio_weight, 10, n=args.n, two_layer=two_layer, second_bio_weights=sec_bio_weight) # MNIST
+# freeze bio layers
+for p in model.first_bio_layer.parameters():
+    p.requires_grad = False
+if model.sec_bio_layer is not None:
+    for p in model.sec_bio_layer.parameters():
+        p.requires_grad = False
+model = model.to(device)
 
 # training
 E = args.epochs
 lr = args.lr
-optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
 # record
 i = 0
 while True:
-    run_base_dir = pathlib.Path("sc_logs") / f"{args.sess}_try={str(i)}"
+    run_base_dir = pathlib.Path("mnist_logs") / f"{args.sess}_try={str(i)}"
     if not run_base_dir.exists():
         os.makedirs(run_base_dir)
         break
@@ -61,20 +73,23 @@ f_test = open(run_base_dir / "loss_teset.csv", "w")
 train_csv_writer = csv.writer(f_train)
 test_csv_writer = csv.writer(f_test)
 
-criteria = nn.MSELoss()
+criteria = nn.CrossEntropyLoss()
 
 # main training loop
 for epoch in tqdm(range(E), desc="Epoch", total=args.epochs, dynamic_ncols=True):
     # train
-    train_loss, train_accuracy = train(model, train_loader, optimizer, criteria, device, train_writer, epoch, sc=True) 
+    train_loss, train_accuracy = train(model, train_loader, optimizer, criteria, device, train_writer, epoch) 
     # test
-    test_loss, test_accuracy = test(model, test_loader, criteria, device, test_writer, epoch, sc=True) 
+    test_loss, test_accuracy = test(model, test_loader, criteria, device, test_writer, epoch) 
     # log to file
     train_csv_writer.writerow([train_loss, train_accuracy])  
     test_csv_writer.writerow([test_loss, test_accuracy])  
     # save checkpoint
     if epoch % 10 == 9:
         torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 
+    if epoch < 50:
+        scheduler.step()
+
 torch.save(model.state_dict(), run_base_dir / f"epoch_{epoch+1}.pt") 
 f_train.close()
 f_test.close()
